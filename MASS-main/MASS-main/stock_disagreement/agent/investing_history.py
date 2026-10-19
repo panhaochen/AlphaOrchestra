@@ -7,11 +7,15 @@ class InvestingHistory():
         self.records = deque()
         self.history_stock_list = deque()
         self.chosen_stock_list = deque()
+        self.decisions = deque()
+        self.call_metrics = deque()
 
-    def add_records(self, record: str, history_stocks: list[str], chosen_stocks: list[str]) -> None:
+    def add_records(self, record: str, history_stocks: list[str], chosen_stocks: list[str], decision=None, call_metrics=None) -> None:
         self.records.append(record)
         self.history_stock_list.append(history_stocks)
         self.chosen_stock_list.append(chosen_stocks)
+        self.decisions.append(decision)
+        self.call_metrics.append(call_metrics)
 
     def get_record(self, n_days_ago: int = 1) -> Tuple[bool, Optional[str]]:
         if n_days_ago <= 0:

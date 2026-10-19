@@ -1,0 +1,45 @@
+{
+  "status": "development_candidate_not_independent_blind_test",
+  "method": "CSI300 benchmark + causal risk-off high-score MASS overlay",
+  "metrics": {
+    "total_return": -0.07257482336267873,
+    "annualized_return": -0.0995833325949691,
+    "annualized_volatility": 0.18168836043213732,
+    "sharpe": -0.5480996821046477,
+    "max_drawdown": -0.14643750258389354,
+    "positive_day_rate": 0.4972375690607735,
+    "benchmark_total_return": -0.05881804719046546,
+    "active_total_return": -0.014616489543969435,
+    "annualized_tracking_error": 0.021544876948534658,
+    "information_ratio": -1.0150852009587374,
+    "trading_days": 181.0,
+    "active_gross_exposure": 0.2,
+    "active_gate_rate": 0.49171270718232046,
+    "spread_total_return": -0.06805362157564077,
+    "average_overlay_turnover": 0.010084977688413219,
+    "estimated_overlay_transaction_cost": 44015.552128301766
+  },
+  "config": {
+    "initial_capital": 10000000.0,
+    "top_n": 15,
+    "rebalance_every": 10,
+    "commission_bps": 3.0,
+    "slippage_bps": 5.0,
+    "sell_stamp_duty_bps": 10.0,
+    "impact_bps": 10.0,
+    "max_participation_rate": 0.05,
+    "max_position_weight": 0.06666666666666667,
+    "min_signal": null,
+    "industry_balanced": false,
+    "min_value_quantile": 0.0,
+    "residualize_signal": false,
+    "annualization": 252,
+    "active_gross_exposure": 0.2,
+    "overlay_mode": "risk_off_top",
+    "regime_lookback": 60
+  },
+  "limitations": [
+    "Developed after inspecting the 2026 evaluation period; requires a new forward test.",
+    "The short leg is a research proxy and requires borrow, derivatives, or long-only underweight implementation."
+  ]
+}

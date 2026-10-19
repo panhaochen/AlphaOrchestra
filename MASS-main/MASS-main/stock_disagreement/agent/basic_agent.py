@@ -9,6 +9,7 @@ from stock_disagreement.prompts import (INVESTING_DECISION_EXAMPLE,
                                         INVESTING_DECISION_INSTRUCTION_USING_SELF_REFLECTION,
                                         INVESTING_STYLE_INSTRUCTION_WITH_MARCO_DATA,
                                         INVESTING_STYLE_WITH_MACRO_DATA_EXAMPLE)
+from stock_disagreement.prompts.prompt_template import TARGETED_DEBATE_INSTRUCTION
 
 from stock_disagreement.agent.investment_analyzer import InvestmentAnalyzer
 from stock_disagreement.agent.investing_history import InvestingHistory
@@ -22,7 +23,14 @@ from stock_disagreement.config import (
     LLM_BASE_URL,
     LLM_MAX_TOKENS,
     LLM_MODEL_NAME,
+    REASONING_MODEL_NAME,
     first_existing_data_path,
+)
+from stock_disagreement.decision import (
+    AgentDecision,
+    StockDecision,
+    parse_agent_decision_response,
+    parse_debate_revision,
 )
 
 MAX_RETRIRES = 3
@@ -62,6 +70,7 @@ class Modality(IntFlag):
 class StockDisagreementAgent():
     model_name: str = LLM_MODEL_NAME
     model_server: str = LLM_BASE_URL
+    reasoning_model_name: str = REASONING_MODEL_NAME
     api_key: str = LLM_API_KEY
     prev_stock: list[str] | None = None
     system_prompt: str = "You are a helpful assistant. Strictly follow the user's input prompt and output the result in JSON format as specified. Do not include any additional content."
@@ -84,6 +93,10 @@ class StockDisagreementAgent():
                  use_prev_stock: bool = False,
                  use_self_reflection: bool = False,
                  use_macro_data: bool = False,
+                 random_seed: int = 42,
+                 agent_id: int | None = None,
+                 investor_type: int | None = None,
+                 persona: str = "",
                  ):
         if not self.api_key:
             raise RuntimeError(
@@ -91,7 +104,11 @@ class StockDisagreementAgent():
             )
         self.client = OpenAI(api_key=self.api_key, base_url=self.model_server)
         self.model = OpenAIModel(self.model_name, None, LLM_MAX_TOKENS)
+        self.reasoning_model = OpenAIModel(self.reasoning_model_name, None, LLM_MAX_TOKENS)
+        self.investing_history = InvestingHistory()
+        self.prev_stock = None
         self.stock_num = stock_num
+        self.random_seed = int(random_seed)
         self.stock_pool = stock_pool
         self.stock_labels = stock_labels
         self.is_self_reflective = is_self_reflective
@@ -128,6 +145,12 @@ class StockDisagreementAgent():
         else:
             self.end_date = end_date
         self.modality = modality
+        # Agent identity must be independent from its modality combination:
+        # different investor types are allowed to consume the same data.
+        self.agent_id = int(agent_id) if agent_id is not None else int(modality)
+        self.agent_type = self.agent_id
+        self.investor_type = int(investor_type) if investor_type is not None else self.agent_id
+        self.persona = str(persona).strip()
         self.prepare_data: dict[str, pd.DataFrame] = {}
         self.description: dict[str, str] = {}
         self.strategy_input: str = ""
@@ -248,7 +271,14 @@ class StockDisagreementAgent():
             for key, description in self.description.items():
                 res[key] = description
             if "news" in self.prepare_data.keys():
-                res["news"] = f"Investors read news to make investment descisions. The example news is: {self.prepare_data['news']['NewsTitle'].head(3).to_list()}"
+                # Keep the strategy prompt independent of the requested run end
+                # date.  Sampling rows from the full prepared news table made an
+                # earlier date's prompt (and therefore routing/caches) change when
+                # future dates were appended to an experiment.
+                res["news"] = (
+                    "Investors may use stock-specific news available on the decision "
+                    "date to assess catalysts, sentiment, and event risk."
+                )
             return res
         headers = generate_headers()
         input = f"Investors read following information to make investment decisions. The information is in key-value format, key representing name, value representing descriptions.: \
@@ -315,15 +345,40 @@ class StockDisagreementAgent():
                                        )
         json_strategy = json.loads(strategy)
         selector_name = json_strategy["Details"]["StockPoolSelector"]
+        # Some OpenAI-compatible endpoints occasionally return the requested
+        # selector as a one-element JSON array.  Treat that as the intended
+        # scalar value instead of silently introducing random stock selection.
+        if (
+            isinstance(selector_name, list)
+            and len(selector_name) == 1
+            and isinstance(selector_name[0], str)
+        ):
+            selector_name = selector_name[0]
         if isinstance(selector_name, str):
             if selector_name == "RandomStockSelector":
-                stock_selector = RandomStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date)
+                stock_selector = RandomStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date, self.random_seed)
             elif selector_name == "IndustryEqualStockSelector":
-                stock_selector = IndustryEqualStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date)
+                stock_selector = IndustryEqualStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date, self.random_seed)
             elif selector_name == "MVEqualStockSelector":
-                stock_selector = MVEqualStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date)
+                if "FREE_MV" in self.stock_pool and self.stock_pool["FREE_MV"].notna().any():
+                    stock_selector = MVEqualStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date, self.random_seed)
+                else:
+                    print("FREE_MV is unavailable; using deterministic industry-equal selector.")
+                    stock_selector = IndustryEqualStockSelector(
+                        self.stock_num, self.stock_pool, self.start_date, self.end_date, self.random_seed
+                    )
             else:
-                stock_selector = RandomStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date)
+                print(
+                    f"unknown stock selector {selector_name!r}; "
+                    "using deterministic industry-equal selector."
+                )
+                stock_selector = IndustryEqualStockSelector(
+                    self.stock_num,
+                    self.stock_pool,
+                    self.start_date,
+                    self.end_date,
+                    self.random_seed,
+                )
         # elif isinstance(selector_name, dict):
         #     assert len(list(selector_name.keys())) == 1
         #     assert list(selector_name.keys())[0] == "I"
@@ -331,8 +386,17 @@ class StockDisagreementAgent():
         #     assert isinstance(basis_indutsry, list[str])
         #     stock_selector = IndustryBasisStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date, basis_indutsry)
         else:
-            print("stock selector does not match, using default random stock selector.")
-            stock_selector = RandomStockSelector(self.stock_num, self.stock_pool, self.start_date, self.end_date)
+            print(
+                "stock selector does not match; "
+                "using deterministic industry-equal selector."
+            )
+            stock_selector = IndustryEqualStockSelector(
+                self.stock_num,
+                self.stock_pool,
+                self.start_date,
+                self.end_date,
+                self.random_seed,
+            )
         assert isinstance(stock_selector, BasicStockSelector)
         if self.stock_selector is None:
             self.stock_selector = stock_selector
@@ -340,6 +404,7 @@ class StockDisagreementAgent():
   
     def invest(self, date: int, num_stocks: int) -> None:
         # if self.use_macro_data:
+        metrics_start = len(self.model.call_metrics)
         self.generate_strategy_and_stock_selector(date)
         # if self.use_prev_stock:
         #     if self.prev_stock is None:
@@ -371,6 +436,8 @@ class StockDisagreementAgent():
             descriptions[key] = self.description[key]
         input_data = f"Input Data for investing decision:1. descriptions: {str(descriptions)}, 2. input data: {str(prepare_datas)}."
         investment_strategy = f" Investment strategy: {str(self.strategy)}"
+        if self.persona:
+            investment_strategy += f" Investor mandate: {self.persona}"
         if not self.use_self_reflection:
             llm_input = INVESTING_DECISION_INSTRUCTION.format(num_stocks = num_stocks, examples = INVESTING_DECISION_EXAMPLE, input_data = input_data + investment_strategy)
         else:
@@ -378,31 +445,116 @@ class StockDisagreementAgent():
             llm_input = INVESTING_DECISION_INSTRUCTION_USING_SELF_REFLECTION.format(num_stocks = num_stocks, 
                                                                                     examples = INVESTING_DECISION_EXAMPLE,                                                                            input_data = input_data + investment_strategy,
                                                                                  decision_history = str(reflection_input)) 
+        last_error = ""
         for attempt in range(MAX_RETRIRES):
             try:
+                attempt_input = llm_input
+                if attempt > 0:
+                    attempt_input += (
+                        f"\nCorrection attempt {attempt + 1}: the previous response was invalid because: "
+                        f"{last_error}. Select exactly {num_stocks} unique stocks only from this legal "
+                        f"candidate list: {current_stock}. Return only the required JSON object."
+                    )
                 res, reason = self.model.chat_generate(client=self.client,
                                     system_prompt=self.system_prompt,
-                                    input_string=llm_input)
-                selected_stocks = json.loads(res)["Stock"]
-                print(f"on {date}, agent {self.modality} chooses {str(selected_stocks)}")
+                                    input_string=attempt_input)
+                decision = parse_agent_decision_response(
+                    res,
+                    legal_stocks=current_stock,
+                    expected_count=num_stocks,
+                )
+                selected_stocks = list(decision.stocks)
+                print(f"on {date}, agent {self.agent_type} (modality {int(self.modality)}) chooses {str(selected_stocks)}")
                 # if num_stocks != len(selected_stocks):
                 #     raise ValueError(f"LLM does not output required num stocks, expected {num_stocks}, actual {len(selected_stocks)}")
-                for stock in selected_stocks:
-                    if stock not in current_stock:
-                        print(f"current stock is {str(current_stock)}, whereas current selected stock is {stock}")
-                        raise ValueError(f"LLM output illegal stock code {stock}!")
                 break
             except Exception as e:
-                self.investing_history.add_records(input_data, current_stock, [])
+                last_error = str(e)
+                task_metrics = self._summarize_call_metrics(self.model.call_metrics[metrics_start:])
+                self.investing_history.add_records(input_data, current_stock, [], call_metrics=task_metrics)
                 print(f"occuring exceptions {str(e)} in investment decisions")
                 if attempt >= MAX_RETRIRES - 1:
+                    failed_metrics = task_metrics.copy()
+                    failed_metrics["success"] = False
+                    failed_metrics["failure_reason"] = last_error
+                    self.investment_analyzer.record_call_metrics(
+                        date,
+                        self.agent_type,
+                        failed_metrics,
+                    )
                     print("Exceeding max retries, giving up.")
-                    return
-        self.investing_history.add_records(input_data, current_stock, selected_stocks)
+                    fallback_stocks = tuple(dict.fromkeys(map(str, current_stock)))[:num_stocks]
+                    if len(fallback_stocks) < num_stocks:
+                        return
+                    decision = AgentDecision(
+                        stocks=fallback_stocks,
+                        decisions=tuple(
+                            StockDecision(
+                                stock=stock,
+                                prediction=0.0,
+                                confidence=0.0,
+                                horizon_days=20,
+                                reasoning_summary="Deterministic legal fallback after invalid model output.",
+                                risk_factors=("model_output_validation_failure",),
+                            )
+                            for stock in fallback_stocks
+                        ),
+                    )
+                    selected_stocks = list(fallback_stocks)
+                    print(f"using deterministic legal fallback {selected_stocks}")
+                    break
+        decision_by_stock = decision.by_stock()
+        task_metrics = self._summarize_call_metrics(self.model.call_metrics[metrics_start:])
+        self.investing_history.add_records(
+            input_data,
+            current_stock,
+            selected_stocks,
+            decision=decision,
+            call_metrics=task_metrics,
+        )
         selected_stock_res = {}
         for stock in current_stock:
             if stock in selected_stocks:
                 selected_stock_res[stock] = 1
             else:
                 selected_stock_res[stock] = 0
-        self.investment_analyzer.record_score(date, self.modality, 1, selected_stock_res)
+        self.investment_analyzer.record_score(
+            date,
+            self.agent_type,
+            1,
+            selected_stock_res,
+            decisions=decision_by_stock,
+            call_metrics=task_metrics,
+        )
+
+    @staticmethod
+    def _summarize_call_metrics(metrics: list[dict[str, Any]]) -> dict[str, Any]:
+        if not metrics:
+            return {}
+        return {
+            "model": metrics[-1].get("model", ""),
+            "llm_request_count": len(metrics),
+            "prompt_tokens": sum(int(item.get("prompt_tokens", 0) or 0) for item in metrics),
+            "completion_tokens": sum(int(item.get("completion_tokens", 0) or 0) for item in metrics),
+            "total_tokens": sum(int(item.get("total_tokens", 0) or 0) for item in metrics),
+            "latency_seconds": sum(float(item.get("latency_seconds", 0) or 0) for item in metrics),
+            "monetary_cost": sum(float(item.get("monetary_cost", 0) or 0) for item in metrics),
+            "cached_request_count": sum(bool(item.get("cached", False)) for item in metrics),
+            "billed_total_tokens": sum(int(item.get("billed_total_tokens", item.get("total_tokens", 0)) or 0) for item in metrics),
+            "billed_latency_seconds": sum(float(item.get("billed_latency_seconds", item.get("latency_seconds", 0)) or 0) for item in metrics),
+            "billed_monetary_cost": sum(float(item.get("billed_monetary_cost", item.get("monetary_cost", 0)) or 0) for item in metrics),
+            "success": all(bool(item.get("success", False)) for item in metrics),
+        }
+
+    def debate_stock(self, stock: str, diagnosis: dict[str, Any], prior_opinion: dict[str, Any]):
+        prompt = TARGETED_DEBATE_INSTRUCTION.format(
+            stock=stock,
+            prior_opinion=json.dumps(prior_opinion, ensure_ascii=False, default=str),
+            diagnosis=json.dumps(diagnosis, ensure_ascii=False, default=str),
+        )
+        response, _ = self.reasoning_model.chat_generate(
+            client=self.client,
+            system_prompt=self.system_prompt,
+            input_string=prompt,
+        )
+        return parse_debate_revision(response, stock), self.reasoning_model.last_call_metrics

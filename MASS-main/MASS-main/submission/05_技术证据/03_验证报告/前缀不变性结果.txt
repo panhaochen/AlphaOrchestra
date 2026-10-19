@@ -1,0 +1,9 @@
+Command:
+python -m scripts.check_prefix_invariance --short_run prefix_invariance_short_v3_seed42 --long_run prefix_invariance_long_v3_seed42
+
+Output:
+Compared prefix through 20251014.
+PREFIX INVARIANCE: PASSED
+
+Interpretation:
+在修复信号构造的未来信息依赖后，短运行与长运行在共同历史前缀上的信号完全一致。该结果用于证明最终验证流水线满足前缀因果一致性；此前v1/v2失败记录在项目运行历史中保留，不作为最终实现结果。

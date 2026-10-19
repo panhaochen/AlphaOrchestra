@@ -1,0 +1,9 @@
+{
+  "source": "BaoStock",
+  "start": "2018-01-02",
+  "end": "2026-09-30",
+  "labels": "forward adjusted-close returns, 1%/99% winsorized and cross-sectionally standardized",
+  "constituents": "latest successfully downloaded monthly snapshot not later than each trading date",
+  "industry": "BaoStock static CSRC classification as downloaded; not point-in-time historical industry",
+  "news_enabled": false
+}

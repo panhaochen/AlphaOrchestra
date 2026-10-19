@@ -1,0 +1,9 @@
+{
+  "source": "BaoStock",
+  "start": "2023-01-01",
+  "end": "2023-03-31",
+  "labels": "forward adjusted-close returns, 1%/99% winsorized and cross-sectionally standardized",
+  "constituents": "latest successfully downloaded monthly snapshot not later than each trading date",
+  "industry": "Unknown in v1; replace with a documented point-in-time or declared static classification",
+  "news_enabled": false
+}

@@ -1,0 +1,42 @@
+{
+  "status": "development_candidate_not_independent_blind_test",
+  "method": "CSI300 benchmark + dollar-neutral high-minus-low MASS overlay",
+  "metrics": {
+    "total_return": -0.06421218174244192,
+    "annualized_return": -0.08825943096572686,
+    "annualized_volatility": 0.18705996006002143,
+    "sharpe": -0.4718242799656714,
+    "max_drawdown": -0.14927061754013915,
+    "positive_day_rate": 0.48066298342541436,
+    "benchmark_total_return": -0.05881804719046546,
+    "active_total_return": -0.005731234577835198,
+    "annualized_tracking_error": 0.016888822225215323,
+    "information_ratio": -0.49685609394060337,
+    "trading_days": 181.0,
+    "active_gross_exposure": 0.2,
+    "spread_total_return": -0.06805362157564077,
+    "average_overlay_turnover": 0.011734229430232144,
+    "estimated_overlay_transaction_cost": 52759.64606113545
+  },
+  "config": {
+    "initial_capital": 10000000.0,
+    "top_n": 15,
+    "rebalance_every": 10,
+    "commission_bps": 3.0,
+    "slippage_bps": 5.0,
+    "sell_stamp_duty_bps": 10.0,
+    "impact_bps": 10.0,
+    "max_participation_rate": 0.05,
+    "max_position_weight": 0.06666666666666667,
+    "min_signal": null,
+    "industry_balanced": false,
+    "min_value_quantile": 0.0,
+    "residualize_signal": false,
+    "annualization": 252,
+    "active_gross_exposure": 0.2
+  },
+  "limitations": [
+    "Developed after inspecting the 2026 evaluation period; requires a new forward test.",
+    "The short leg is a research proxy and requires borrow, derivatives, or long-only underweight implementation."
+  ]
+}

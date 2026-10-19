@@ -1,0 +1,34 @@
+{
+  "metrics": {
+    "total_return": -0.04134284981292935,
+    "annualized_return": -0.1730392042013118,
+    "annualized_volatility": 0.17882429616027476,
+    "sharpe": -0.967649295519788,
+    "max_drawdown": -0.07697918591175545,
+    "positive_day_rate": 0.44642857142857145,
+    "average_daily_turnover": 0.09756964951226259,
+    "total_transaction_cost": 139136.524237972,
+    "average_gross_exposure": 1.0,
+    "trading_days": 56.0,
+    "benchmark_total_return": -0.038853682645313636,
+    "active_total_return": -0.0025897900482692027,
+    "annualized_tracking_error": 0.15563938592300894,
+    "information_ratio": -0.04956766311325937
+  },
+  "config": {
+    "initial_capital": 10000000.0,
+    "top_n": 15,
+    "rebalance_every": 10,
+    "commission_bps": 3.0,
+    "slippage_bps": 5.0,
+    "sell_stamp_duty_bps": 10.0,
+    "impact_bps": 10.0,
+    "max_participation_rate": 0.05,
+    "max_position_weight": 0.1,
+    "min_signal": 1e-12,
+    "industry_balanced": false,
+    "min_value_quantile": 0.0,
+    "residualize_signal": false,
+    "annualization": 252
+  }
+}

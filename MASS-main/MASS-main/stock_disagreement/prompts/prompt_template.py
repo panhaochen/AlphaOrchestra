@@ -98,7 +98,7 @@ INVESTING_DECISION_INSTRUCTION = """
 Giving following 
 1. input data in table format and their descriptions in json format.
 2. investing style to make investment decisions in json format.
-Please output {num_stocks} stocks you tend to invest. The res is in json format, key is "Stock", and value is a list containing stock code.Please make sure:
+Please output {num_stocks} stocks you tend to invest. Return JSON with "Stock" as the selected stock-code list and "Decisions" as one object per selected stock. Each decision must contain: stock, prediction (-1 to 1), confidence (0 to 1), horizon_days, evidence (a list of source_id/timestamp/claim/direction objects), reasoning_summary, and risk_factors. Please make sure:
 1. You output legal stock code. The stock code is legal if and only if it is in the input data "Stock" list.
 2. The number of stock code is correct, actually equal to {num_stocks}.
 Here is an example.
@@ -112,7 +112,7 @@ Giving following
 1. input data in table format and decriptions in json format.
 2. investing style to make investment decisions in json format.
 3. investing decision history to make self reflections. You are accessible to history investing decision history, please make self reflections to make investment decisions.
-Please output {num_stocks} stocks you tend to invest. The res is in json format, key is "Stock", and value is a list containing stock code. Please make sure:
+Please output {num_stocks} stocks you tend to invest. Return JSON with "Stock" as the selected stock-code list and "Decisions" as one object per selected stock. Each decision must contain: stock, prediction (-1 to 1), confidence (0 to 1), horizon_days, evidence (a list of source_id/timestamp/claim/direction objects), reasoning_summary, and risk_factors. Please make sure:
 1. You output legal stock code. The stock code is legal if and only if it is in the input data "Stock" list. The stock not in input data but in decision history is also illegal.
 2. The number of stock code is correct, actually equal to {num_stocks}.
 Here is an example. The example here does not use self reflection. However, in real cases, self reflection mechanism may be used. You should reflect and improve your decision process, then output the res.
@@ -122,6 +122,15 @@ Here is an example. The example here does not use self reflection. However, in r
 (END OF INPUT data)
 Here are investing decision history:
 {decision_history}
+"""
+
+TARGETED_DEBATE_INSTRUCTION = """
+You are revising one investment opinion after a disagreement diagnosis. Focus only on the stated conflict and evidence. Do not discuss unrelated stocks.
+Return exactly one JSON object with: stock, prediction (-1 to 1), confidence (0 to 1), horizon_days, evidence (source_id/timestamp/claim/direction objects), reasoning_summary, and risk_factors.
+Stock: {stock}
+Your prior aggregated opinion: {prior_opinion}
+Conflict diagnosis: {diagnosis}
+Provide the revised opinion:
 """
 
 INVESTING_DECISION_EXAMPLE = """

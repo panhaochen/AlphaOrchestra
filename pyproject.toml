@@ -1,0 +1,15 @@
+[project]
+name = "MASS"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "潘昊辰",email = "3306857632@qq.com"},
+]
+dependencies = []
+requires-python = "==3.10.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false

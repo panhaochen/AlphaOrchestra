@@ -5,3 +5,12 @@ __pycache__/
 .ruff_cache/
 .pdm-python
 MASS_agent_innovations_plan.txt
+.env
+**/.env
+**/.tmp/
+**/__pycache__/
+**/*.pyc
+MASS-main/MASS-main/checkpoints/
+MASS-main/MASS-main/submission.zip
+MASS-main/MASS-main/stock_disagreement/dataset/csi300/raw/daily_history.parquet
+MASS-main/MASS-main/submission/06_本地部署/项目源码/stock_disagreement/dataset/csi300/raw/daily_history.parquet
